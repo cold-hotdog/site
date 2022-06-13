@@ -1,0 +1,120 @@
+---
+title: Ditch Google analytics for Umami
+published: "05-09-2022"
+description: Looking into a relatively unkown GA alterative.
+tags: umami, site-analytics
+---
+
+I am not a fan of Google analytics. It feels bloated, even more so for a personal website. After going through a lot of it's alternatives, I think that [umami](https://github.com/mikecao/umami) is one of the best choices. Umami is self hosted and in this article I'll go through the steps of setting it up. I hosted the umami client on vercel and the database on a digitalocean droplet. I didn't opted for managed database in digitalocean because I plan to play around with the VPS in the future(maybe self-host an email client).
+
+# Setting up database server
+
+I am assuming that you have provisioned an Ubuntu VPS on digitalocean (or any other cloud provider of your choice). First we'll do some setup.
+SSH as root user into the droplet.
+
+## Basic setup for a fresh VPS
+
+Update the package index and upgrade versions.
+
+```bash
+sudo apt update
+sudo apt upgrade
+```
+
+Create a new user with admin privileges.
+
+```bash
+adduser mak
+usermod -aG sudo mak
+```
+
+Copy the ssh keys from root to the new user.
+
+```bash
+rsync --archive --chown=mak:mak ~/.ssh /home/mak
+```
+
+Now relogin as this new user instead of root ([it's a best practice](https://askubuntu.com/a/16179)).
+
+Setup a basic firewal and allow ssh and database connections.
+
+```bash
+sudo ufw allow OpenSSH
+sudo ufw allow 3306
+sudo ufw enable
+```
+
+## Install and start MySQL server
+
+```bash
+sudo apt install mysql-server
+sudo systemctl start mysql.service
+```
+
+Run the following command to configure MySQL. It will prompt self-explanatory questions. It's recommended to accept all of them.
+
+```bash
+sudo mysql_secure_installation
+```
+
+## Create a new MySQL user.
+
+Open the MySQL shell
+
+```bash
+sudo mysql
+```
+
+Create a user and grant privileges
+
+```
+CREATE USER 'mak'@'%' IDENTIFIED BY '<your-password>';
+GRANT ALL PRIVILEGES ON *.* TO 'mak'@'%' WITH GRANT OPTION;
+```
+
+Here `%` is a wildcard which signifies that _mak_ can connect with the server from any host.
+
+Exit the shell by entering `exit`.
+
+## Allow remote connections to mysql
+
+Open the file `/etc/mysql/mysql.conf.d/mysqld.cnf` in your favourite editor and change `bind-address` from `127.0.0.1` to `0.0.0.0`. Restart the MySQL service for this change to take effect by running `sudo systemctl restart mysql`
+
+## Create DB and tables for umami
+
+Open the MySQL shell.
+
+```bash
+mysql -u mak -p
+```
+
+Create a new DB for umami. I am naming it `umami` but any other name will also work.
+
+```
+CREATE DATABASE umami;
+```
+
+Create a file named `schema.sql` and paste the sql code written in [umami/sql/schema.mysql.sql](https://github.com/mikecao/umami/blob/master/sql/schema.mysql.sql). Now run the following command to create the required tables.
+
+```bash
+mysql -u mak -p umami < schema.sql
+```
+
+With this, our database setup is complete.
+
+# Deploying umami on vercel
+
+You will have to fork the [umami repository](https://github.com/mikecao/umami). After that import your fork as a project in [vercel](https://vercel.com/login). Make sure to add the following 2 environment variables.
+
+```
+DATABASE_URL=mysql://mak:<your-password>@<vps-ip-address>:3306/umami
+HASH_SALT=<random-string>
+```
+
+Other settings like build command, build folder can be left as default.
+
+After the deployment is complete, vercel will provide a url. Navigate to `<url>/login`. There is already an account created with the credentials `admin`(username) and `umami`(password) when we created the tables in our db. Login using these credentials and make sure to change your password.
+
+# Start tracking your website
+
+This step is pretty straightforward. In the settings page, add your website. It will give you tracking code which you will have to paste in the `<head>` section of your website. After that umami will start tracking visits to your website. Watch it on your dashboard.

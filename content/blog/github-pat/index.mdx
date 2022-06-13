@@ -1,0 +1,11 @@
+---
+title: Github PAT scopes in query params.
+published: "04-10-2022"
+tags: TIL, github
+---
+
+We can mention the Github personal access token’s name and the scopes in the query params.
+
+Eg: `https://github.com/settings/tokens/new?description=new-token&scopes=public_repo,workflow,user:email,gist`
+
+Can be used in your project’s readme when you want the user to generate a Github PAT with specific scopes.

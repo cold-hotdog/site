@@ -1,0 +1,42 @@
+---
+title: Why you should pay attention to exit codes when doing CLI development
+published: "04-10-2022"
+tags: cli, unix
+---
+
+After a while, I got a chance to dabble in CLI development. I was working on [interviewstreet/ghs](https://github.com/interviewstreet/ghs) which is a Cross-platform CLI tool to generate a Github profile's stats and summary.
+
+When you get started with CLI development, you pay very little attention to exit codes/statuses. It was at least true for me. I have written a few CLI tools in python and whenever I wanted to stop the execution, I would just use the plain old `exit()`. `exit()` function terminates the program with an exit code of 0. This might not always be what you want.
+
+In CLI tools, at several places, you do exceptional handling to catch the error which might occur due to invalid user input or any other reason. It allows us to show good and informative error messages to the user instead of a long error traceback. You should not use `exit()` here because it will return an exit code of 0. Exit codes are ways of communicating to the Operating system or to other programs about the success or failure of the running script. An error code of `0` means success and non-zero error codes(1-255) are used for non-success scenarios.
+
+Other programs might use the exit codes to adapt based on success or failure. For example, in bash scripts, you might have an `if..else` statement where the condition is whether the last command ran successfully or not.
+
+Sometimes the usecase is subtle. Eg: many of the themes of oh-my-zsh use the exit codes to indicate whether the last command was successful or not. The following screenshot demonstrates this for `robbyrussell` (the default theme).
+
+![_config.yml](https://i.imgur.com/2CT7Rcr.png)
+
+We should use `exit(<non-zero-exit-code>)` in case of failures. Another rookie mistake I used to do was using an `exit(1)` in all failures as a status code of `1` is like a catch-all. For UNIX systems, there are a few other codes that are reserved and have a special meaning ([read them here](https://tldp.org/LDP/abs/html/exitcodes.html)).
+
+Let me demonstrate this by an example. If you press `Ctrl-C` in the middle of the execution, then the CLI will print a long error traceback which is not very useful for the user. One way to tackle this would be as following:
+
+```python
+def main_proxy():
+    try:
+        # entry point of our script
+        main()
+    except ValidationException as e:
+        print(e)
+        exit(1)
+    except KeyboardInterrupt:
+        print('User interrupt. Exiting.')
+        exit(130)
+    except Exception as e:
+        print(f"Error: {e}")
+        traceback_str = "".join(traceback.format_tb(e.__traceback__))
+        print(f"Traceback: \n{traceback_str}")
+        exit(1)
+```
+
+Notice that for `KeyboarInterrupt` exception, we are using `130` exit code as this is the code reserved for script termination due to `Ctrl-C`.
+So, use `1` only when the failure does not fit any of the other reserved non-zero codes.

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://mayanknader.com/sitemap.xml
